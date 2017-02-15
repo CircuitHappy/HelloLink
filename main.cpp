@@ -18,9 +18,10 @@ namespace {
   const double RESET_WIDTH = 1.0 / 16.0; // pct of beat
   const double QUANTUM = 4;
 
+  // Using WiringPi numbering scheme
   enum OutPin {
-      Clock = 22,
-      Reset = 23
+      Clock = 25,
+      Reset = 28
   };
 
   struct State {
