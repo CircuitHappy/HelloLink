@@ -3,7 +3,7 @@ project(link_test)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-include(lib/link/AbletonLinkConfig.cmake)
+include(lib/Link/AbletonLinkConfig.cmake)
 
 add_executable(link_test main.cpp)
 

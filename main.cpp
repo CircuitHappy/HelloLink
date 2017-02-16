@@ -18,9 +18,22 @@ namespace {
   const double PULSE_LENGTH = 0.015; // seconds
   const double QUANTUM = 4;
 
+  float clock_div = 1.0; // clock division for supporting volca/eurorack/etc, multiply by PULSES_PER_BEAT
+
+  // for first command line argument to set clock division
+  enum ClockDivModes {
+      Sixteenth = 0,
+      Eighth,
+      Quarter,
+      NUM_CLOCK_DIVS
+  };
+
+  int selectedClockDiv = Sixteenth;
+
   // Using WiringPi numbering scheme
   enum InPin {
-      PlayStop = 1
+      PlayStop = 1,
+      ClockDiv = 10
   };
 
   enum OutPin {
@@ -40,12 +53,14 @@ namespace {
       std::atomic<bool> running;
       std::atomic<bool> playPressed;
       std::atomic<PlayState> playState;
+      std::atomic<bool> clockDivPressed;
 
       State()
         : link(120.0)
         , running(true)
         , playPressed(false)
         , playState(Stopped)
+        , clockDivPressed(false)
       {
         link.enable(true);
       }
@@ -55,6 +70,8 @@ namespace {
       wiringPiSetup();
       pinMode(PlayStop, INPUT);
       pullUpDnControl(PlayStop, PUD_DOWN);
+      pinMode(ClockDiv, INPUT);
+      pullUpDnControl(ClockDiv, PUD_DOWN);
       pinMode(Clock, OUTPUT);
       pinMode(Reset, OUTPUT);
       pinMode(PlayIndicator, OUTPUT);
@@ -81,7 +98,7 @@ namespace {
 
       // Fractional portion of current beat value
       double intgarbage;
-      const auto beatFraction = std::modf(beats * PULSES_PER_BEAT, &intgarbage);
+      const auto beatFraction = std::modf(beats * PULSES_PER_BEAT * clock_div, &intgarbage);
 
       // Fractional beat value for which clock should be high
       const auto highFraction = PULSE_LENGTH / secondsPerBeat;
@@ -96,6 +113,7 @@ namespace {
   void input(State& state) {
       while (state.running) {
 
+          const bool clockDivPressed = digitalRead(ClockDiv) == HIGH;
           const bool playPressed = digitalRead(PlayStop) == HIGH;
           if (playPressed && !state.playPressed) {
               switch (state.playState) {
@@ -109,7 +127,25 @@ namespace {
               }
           }
 
+          if (clockDivPressed && !state.clockDivPressed) {
+              selectedClockDiv = (selectedClockDiv + 1) % NUM_CLOCK_DIVS;
+              switch (selectedClockDiv) {
+                  case Sixteenth:
+                      clock_div = 1.0;
+                      break;
+                  case Eighth:
+                      clock_div = 0.5;
+                      break;
+                  case Quarter:
+                      clock_div = 0.25;
+                      break;
+                  default:
+                      clock_div = 1.0;
+                      break;
+              }
+          }
           state.playPressed.store(playPressed);
+          state.clockDivPressed.store(clockDivPressed);
           std::this_thread::sleep_for(std::chrono::milliseconds(10));
       }
   }
